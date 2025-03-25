@@ -32,7 +32,7 @@ jobs:
           echo "[bookeo]" > config.ini
           echo "username = ${{ secrets.BOOKEO_USERNAME }}" >> config_
 
-          - name: Run Script
+- name: Run Script
   run: |
     echo "👟 Starting extract_calender.py..."
     python extract_calender.py
