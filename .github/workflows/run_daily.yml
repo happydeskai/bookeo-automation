@@ -27,18 +27,16 @@ jobs:
           sudo apt-get install -y chromium-browser
           echo "CHROME_BIN=$(which chromium-browser)" >> $GITHUB_ENV
 
-- name: Create config.ini
-  run: |
-    echo "[bookeo]" > config.ini
-    echo "username = ${{ secrets.BOOKEO_USERNAME }}" >> config.ini
-    echo "password = ${{ secrets.BOOKEO_PASSWORD }}" >> config.ini
-    echo "[google]" >> config.ini
-    echo "sheet_id = ${{ secrets.GOOGLE_SHEET_ID }}" >> config.ini
+      - name: Create config.ini
+        run: |
+          echo "[bookeo]" > config.ini
+          echo "username = ${{ secrets.BOOKEO_USERNAME }}" >> config.ini
+          echo "password = ${{ secrets.BOOKEO_PASSWORD }}" >> config.ini
+          echo "[google]" >> config.ini
+          echo "sheet_id = ${{ secrets.GOOGLE_SHEET_ID }}" >> config.ini
 
-- name: Run Script
-  run: |
-    echo "👟 Starting extract_calender.py..."
-    python extract_calender.py
-    echo "✅ Script finished"
-
-
+      - name: Run Script
+        run: |
+          echo "👟 Starting extract_calender.py..."
+          python extract_calender.py
+          echo "✅ Script finished"
