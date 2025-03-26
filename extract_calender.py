@@ -2,7 +2,6 @@ import time
 import pandas as pd
 import pyperclip
 
-from bookeo_scraper import BookeoScraper
 import configparser
 
 config = configparser.ConfigParser()
