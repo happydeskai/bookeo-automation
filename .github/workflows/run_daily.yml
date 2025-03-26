@@ -17,9 +17,10 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          pip install selenium pandas pyperclip gspread oauth2client
+- name: Install dependencies
+  run: |
+    pip install selenium pandas pyperclip gspread oauth2client undetected-chromedriver
+
 
       - name: Set up Chromium
         run: |
