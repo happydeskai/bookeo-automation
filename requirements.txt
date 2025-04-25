@@ -1,8 +1,0 @@
-pandas==2.2.3
-selenium==4.28.1
-PyAutoGUI==0.9.54
-setuptools==75.8.0
-undetected-chromedriver==3.5.5
-pyperclip~=1.9.0
-webdriver-manager==4.0.2
-undetected-chromedriver
