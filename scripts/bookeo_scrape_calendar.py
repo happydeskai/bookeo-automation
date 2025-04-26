@@ -34,65 +34,65 @@ def login(driver):
     password = os.environ.get("BOOKEO_PASSWORD")
 
     driver.get(BOOKEO_URL)
-
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
-    driver.find_element(By.NAME, 'username').send_keys(username)
-    driver.find_element(By.ID, 'password').send_keys(password)
-    driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
+    try:
+        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
+        driver.find_element(By.NAME, 'username').send_keys(username)
+        driver.find_element(By.ID, 'password').send_keys(password)
+        driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
+    except Exception as e:
+        with open("page_error.html", "w") as f:
+            f.write(driver.page_source)
+        raise Exception(f"Login failed: {e}")
 
 def go_to_calendar(driver):
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.LINK_TEXT, 'Calendar')))
+    driver.find_element(By.LINK_TEXT, 'Calendar').click()
     WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']"))
-    )
-    driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
-
-    WebDriverWait(driver, 40).until(
         EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'groupClasses')]"))
     )
 
-
 def scrape_calendar_data(driver):
-    time.sleep(5)
-    classes = driver.find_elements(By.CSS_SELECTOR, ".groupClasses table tbody tr")
+    time.sleep(5)  # wait calendar fully loaded
+    classes = driver.find_elements(By.CSS_SELECTOR, "div.groupClasses > div > div")
     data = []
 
-    for row in classes:
+    for cls in classes:
         try:
-            # Click on the row
-            row.click()
+            # Click on the class (not the plus button)
+            cls.click()
             time.sleep(2)
 
-            WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, ".bookingInfo")))
+            WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".bookingInfo"))
+            )
 
-            # Scrape popup
-            popup_title = driver.find_element(By.CSS_SELECTOR, ".winTop div").text
-            parts = popup_title.split(' - ')
-            class_name = parts[0].strip()
-            date_info = parts[1].strip() if len(parts) > 1 else ""
+            class_name_elem = driver.find_element(By.CSS_SELECTOR, "div.ui-dialog-title")
+            class_name = class_name_elem.text.split('(')[0].strip()
 
-            instructor = driver.find_element(By.NAME, "instructor").get_attribute("value")
+            date_elem = driver.find_element(By.CSS_SELECTOR, "div.bookingInfo td")
+            date_text = date_elem.text
 
-            customers = driver.find_elements(By.CSS_SELECTOR, ".bookingInfo .detailsTitle2")
+            instructor_elem = driver.find_element(By.NAME, "instructor")
+            instructor = instructor_elem.get_attribute('value')
+
+            customers = driver.find_elements(By.CSS_SELECTOR, "div.detailsTitle2")
+
             for customer in customers:
-                customer_name = customer.text.strip()
-                if customer_name:
-                    data.append({
-                        "Class Name": class_name,
-                        "Date": date_info,
-                        "Instructor": instructor,
-                        "Customer Name": customer_name
-                    })
+                data.append({
+                    "Class Name": class_name,
+                    "Date": date_text,
+                    "Instructor": instructor,
+                    "Customer Name": customer.text.strip()
+                })
 
-            # Close popup
-            driver.find_element(By.CLASS_NAME, "ui-dialog-titlebar-close").click()
+            # Close the popup
+            driver.find_element(By.CSS_SELECTOR, "button.ui-dialog-titlebar-close").click()
             time.sleep(1)
 
         except Exception as e:
-            print(f"Skipping a class due to error: {e}")
-            try:
-                driver.find_element(By.CLASS_NAME, "ui-dialog-titlebar-close").click()
-            except:
-                pass
+            print(f"Error scraping a class: {e}")
+            driver.find_element(By.CSS_SELECTOR, "button.ui-dialog-titlebar-close").click()
+            time.sleep(1)
             continue
 
     return pd.DataFrame(data)
