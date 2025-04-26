@@ -8,6 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
@@ -32,17 +33,23 @@ def login(driver):
     driver.get(BOOKEO_URL)
 
     try:
-        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, 'username')))
+        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
         driver.find_element(By.NAME, 'username').send_keys(username)
         driver.find_element(By.ID, 'password').send_keys(password)
         driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
+    except TimeoutException:
+        with open("page_error.html", "w") as f:
+            f.write(driver.page_source)
+        driver.save_screenshot("page_error.png")
+        raise Exception("Login failed: Username field not found. Saved page_error.html and page_error.png.")
     except Exception as e:
         with open("page_error.html", "w") as f:
             f.write(driver.page_source)
-        raise Exception(f"Login failed: {e}")
+        driver.save_screenshot("page_error.png")
+        raise Exception(f"Login failed with unexpected error: {e}")
 
 def go_to_calendar(driver):
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
 
 def scrape_calendar_data(driver):
