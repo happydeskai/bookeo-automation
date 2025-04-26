@@ -34,11 +34,17 @@ def login(driver):
     password = os.environ.get("BOOKEO_PASSWORD")
 
     driver.get(BOOKEO_URL)
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, 'username')))
-    driver.find_element(By.NAME, 'username').send_keys(username)
-    driver.find_element(By.ID, 'password').send_keys(password)
-    driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
-    print("✅ Logged in")
+
+    try:
+        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
+        driver.find_element(By.NAME, 'username').send_keys(username)
+        driver.find_element(By.ID, 'password').send_keys(password)
+        driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
+        print("✅ Logged in")
+    except Exception as e:
+        print(f"❌ Login error: {e}")
+        driver.quit()
+        raise
 
 def go_to_calendar(driver):
     WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
