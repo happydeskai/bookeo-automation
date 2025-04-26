@@ -43,7 +43,11 @@ def login(driver):
 def go_to_calendar(driver):
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'groupClasses')]")))
+
+    WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, "//button[contains(., '14 days')]"))
+    )
+
 
 def scrape_calendar_data(driver):
     time.sleep(5)
