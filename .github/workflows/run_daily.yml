@@ -22,7 +22,7 @@ jobs:
           python3 -m pip install --upgrade pip setuptools wheel
           pip install -r scripts/requirements.txt
 
-      - name: Decode Google Service Account JSON
+      - name: Write Service Account JSON to File
         run: |
           echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" > service_account.json
 
@@ -33,7 +33,6 @@ jobs:
         env:
           BOOKEO_USERNAME: ${{ secrets.BOOKEO_USERNAME }}
           BOOKEO_PASSWORD: ${{ secrets.BOOKEO_PASSWORD }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
 
       - name: Upload error page if login fails
         if: failure()
