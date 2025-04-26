@@ -2,6 +2,7 @@
 
 import os
 import time
+import json
 import pandas as pd
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
@@ -12,10 +13,9 @@ import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
 
-BOOKEO_URL = 'https://signin.bookeo.com/'  # UPDATED URL ✅
+BOOKEO_URL = 'https://signin.bookeo.com/'  # fixed URL
 GOOGLE_SHEET_NAME = 'Glowing Mamma Class Lists'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
-SERVICE_ACCOUNT_FILE = 'service_account.json'
 
 def create_browser():
     options = uc.ChromeOptions()
@@ -54,8 +54,9 @@ def scrape_calendar_data(driver):
     return pd.DataFrame(data)
 
 def save_to_google_sheet(df):
-    credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE,
+    service_account_info = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+    credentials = Credentials.from_service_account_info(
+        service_account_info,
         scopes=SCOPES
     )
     gc = gspread.authorize(credentials)
