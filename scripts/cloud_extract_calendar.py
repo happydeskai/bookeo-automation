@@ -1,8 +1,8 @@
-# File: scripts/cloud_extract_calendar.py
+# File: scripts/bookeo_scrape_calendar.py
 
 import os
 import time
-import json
+from datetime import datetime, timedelta
 import pandas as pd
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
@@ -19,15 +19,13 @@ SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive'
 ]
-SERVICE_ACCOUNT_JSON_FILE = 'service_account.json'
 
 def create_browser():
     options = uc.ChromeOptions()
-    options.add_argument('--headless')
+    options.add_argument('--headless=new')  # Updated headless mode
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = uc.Chrome(options=options)
-    return driver
+    return uc.Chrome(options=options)
 
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
@@ -35,38 +33,78 @@ def login(driver):
 
     driver.get(BOOKEO_URL)
 
-    try:
-        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
-        driver.find_element(By.NAME, 'username').send_keys(username)
-        driver.find_element(By.ID, 'password').send_keys(password)
-        driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
-    except Exception as e:
-        with open("page_error.html", "w") as f:
-            f.write(driver.page_source)
-        raise Exception(f"Login failed: {e}")
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
+    driver.find_element(By.NAME, 'username').send_keys(username)
+    driver.find_element(By.ID, 'password').send_keys(password)
+    driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
 
 def go_to_calendar(driver):
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
+    WebDriverWait(driver, 20).until(
+        EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']"))
+    )
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
 
 def scrape_calendar_data(driver):
-    time.sleep(5)
-    data = [
-        {"Date": "2025-05-01", "Event": "Sample Class 1"},
-        {"Date": "2025-05-02", "Event": "Sample Class 2"},
-    ]
-    return pd.DataFrame(data)
+    data = []
+    today = datetime.now()
+    two_weeks_later = today + timedelta(days=14)
+
+    WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'calendarView')]"))
+    )
+    time.sleep(2)
+
+    class_rows = driver.find_elements(By.XPATH, "//tr[contains(@class, 'bookings')]")
+    
+    for row in class_rows:
+        try:
+            row.click()
+            time.sleep(1)
+
+            class_name = row.find_element(By.CLASS_NAME, "ber_title").text
+            instructor = row.find_element(By.CLASS_NAME, "ber_td_eprovider").text
+            date_time = row.find_element(By.CLASS_NAME, "ber_td_start").text
+
+            customers = driver.find_elements(By.XPATH, "//tr[contains(@class, 'ber_booking')]//td[@class='booking_customer']")
+
+            for customer in customers:
+                customer_name = customer.text.strip()
+                if customer_name:
+                    data.append({
+                        "Class Name": class_name,
+                        "Date": date_time,
+                        "Instructor": instructor,
+                        "Customer Name": customer_name
+                    })
+            # Collapse after scraping (optional)
+            row.click()
+            time.sleep(0.5)
+
+        except Exception:
+            continue
+
+    df = pd.DataFrame(data)
+    return df
 
 def save_to_google_sheet(df):
-    credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_JSON_FILE,
+    service_account_info = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON")
+    import json
+    credentials = Credentials.from_service_account_info(
+        json.loads(service_account_info),
         scopes=SCOPES
     )
     gc = gspread.authorize(credentials)
     sh = gc.open(GOOGLE_SHEET_NAME)
     worksheet = sh.sheet1
     worksheet.clear()
-    set_with_dataframe(worksheet, df)
+
+    headers = ["Class Name", "Date", "Instructor", "Customer Name"]
+    worksheet.append_row(headers)
+
+    set_with_dataframe(worksheet, df, row=2, include_column_header=False)
+
+    worksheet.format('1:1', {'textFormat': {'bold': True}})
+    worksheet.freeze(rows=1)
 
 def main():
     driver = create_browser()
@@ -74,10 +112,12 @@ def main():
         login(driver)
         go_to_calendar(driver)
         df = scrape_calendar_data(driver)
-        save_to_google_sheet(df)
+        if not df.empty:
+            save_to_google_sheet(df)
     finally:
         driver.quit()
 
 if __name__ == "__main__":
     main()
+
 
