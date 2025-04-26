@@ -1,8 +1,6 @@
-pandas
 selenium
+pandas
 gspread
-gspread-dataframe
+gspread_dataframe
 google-auth
-google-auth-oauthlib
-google-auth-httplib2
 undetected-chromedriver
