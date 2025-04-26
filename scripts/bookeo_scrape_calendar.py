@@ -41,11 +41,13 @@ def login(driver):
     driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
 
 def go_to_calendar(driver):
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
+    WebDriverWait(driver, 30).until(
+        EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']"))
+    )
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
 
-    WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.XPATH, "//button[contains(., '14 days')]"))
+    WebDriverWait(driver, 40).until(
+        EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'groupClasses')]"))
     )
 
 
