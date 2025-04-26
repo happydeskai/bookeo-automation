@@ -39,9 +39,9 @@ def login(driver):
     driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
 
 def go_to_calendar(driver):
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
+    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Calendar']")))
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CLASS_NAME, "calendarView")))
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//tr[contains(@class, 'bookings')]")))
     time.sleep(2)
 
 def scrape_calendar_data(driver):
