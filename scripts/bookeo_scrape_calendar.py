@@ -2,7 +2,6 @@
 
 import os
 import time
-import json
 import pandas as pd
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
@@ -30,67 +29,59 @@ def create_browser():
     return driver
 
 def login(driver):
+    driver.get(BOOKEO_URL)
     username = os.environ.get("BOOKEO_USERNAME")
     password = os.environ.get("BOOKEO_PASSWORD")
-
-    driver.get(BOOKEO_URL)
+    
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
     driver.find_element(By.NAME, 'username').send_keys(username)
     driver.find_element(By.ID, 'password').send_keys(password)
     driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
 
 def go_to_calendar(driver):
-    calendar_button = WebDriverWait(driver, 30).until(
-        EC.element_to_be_clickable((By.XPATH, "//span[normalize-space()='Calendar']"))
-    )
-    calendar_button.click()
-
-    WebDriverWait(driver, 40).until(
-        EC.presence_of_element_located((By.ID, "outerBody"))
-    )
+    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@onclick, 'book_viewSchedules.html')]"))).click()
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, 'outerBody')))
 
 def scrape_calendar_data(driver):
-    time.sleep(5)
-    rows = driver.find_elements(By.CSS_SELECTOR, ".classRow")
-    all_data = []
-
-    for row in rows:
+    class_rows = driver.find_elements(By.XPATH, "//div[@class='calendarBoxContentRow']")
+    data = []
+    
+    for row in class_rows:
         try:
-            driver.execute_script("arguments[0].scrollIntoView(true);", row)
+            driver.execute_script("arguments[0].scrollIntoView();", row)
             row.click()
+            
+            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'contentPopup')))
+            
+            time.sleep(1)
+            popup = driver.find_element(By.ID, 'contentPopup')
 
-            WebDriverWait(driver, 20).until(
-                EC.visibility_of_element_located((By.CSS_SELECTOR, "table.details.card.clickable"))
-            )
+            class_name = popup.find_element(By.CLASS_NAME, 'detailsTitle2').text
+            datetime = popup.find_element(By.XPATH, "//input[@name='date']").get_attribute('value')
+            instructor = popup.find_element(By.XPATH, "//select[@name='instr']").get_attribute('value')
 
-            class_name_element = driver.find_element(By.CSS_SELECTOR, ".bookingInfo > .detailsTitle2")
-            class_name = class_name_element.text.strip().split('\n')[0]
+            try:
+                customer_elements = popup.find_elements(By.XPATH, "//div[contains(@class, 'bookingInfo')]/div[@class='detailsTitle2']")
+            except:
+                customer_elements = []
 
-            table = driver.find_element(By.CSS_SELECTOR, "table.details.card.clickable")
-            rows_in_popup = table.find_elements(By.TAG_NAME, "tr")
-
-            for tr in rows_in_popup:
-                try:
-                    customer_name = tr.text.split('  ')[0].strip()
-                    if customer_name:
-                        all_data.append({
-                            "Class Name": class_name,
-                            "Date": class_name.split('-')[-1].strip(),  # Extract date from title
-                            "Instructor": "",  # Optional: you can extend later
-                            "Customer Name": customer_name
-                        })
-                except Exception:
-                    continue
-
-            driver.find_element(By.XPATH, "//button[contains(text(),'Cancel')]").click()
-            WebDriverWait(driver, 10).until_not(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "table.details.card.clickable"))
-            )
+            if customer_elements:
+                for customer in customer_elements:
+                    customer_name = customer.text.split()[0] + ' ' + customer.text.split()[1]
+                    data.append({
+                        "Class Name": class_name,
+                        "Date": datetime,
+                        "Instructor": instructor,
+                        "Customer Name": customer_name
+                    })
+            driver.find_element(By.XPATH, "//div[@id='contentPopup']//button[contains(@class,'close')]").click()
+            time.sleep(0.5)
 
         except Exception:
+            driver.refresh()
+            WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, 'outerBody')))
             continue
-
-    return pd.DataFrame(all_data)
+    return pd.DataFrame(data)
 
 def save_to_google_sheet(df):
     credentials = Credentials.from_service_account_file(
@@ -99,9 +90,10 @@ def save_to_google_sheet(df):
     )
     gc = gspread.authorize(credentials)
     sh = gc.open(GOOGLE_SHEET_NAME)
-    worksheet = sh.worksheet('Clean Class List')
+    worksheet = sh.worksheet("Clean Class List")
     worksheet.clear()
-    set_with_dataframe(worksheet, df)
+    if not df.empty:
+        set_with_dataframe(worksheet, df)
 
 def main():
     driver = create_browser()
@@ -115,4 +107,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
