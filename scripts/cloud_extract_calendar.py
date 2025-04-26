@@ -3,10 +3,9 @@
 import os
 import time
 import pandas as pd
-from selenium import webdriver
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import gspread
@@ -19,11 +18,12 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = 'service_account.json'
 
 def create_browser():
-    chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    return webdriver.Chrome(options=chrome_options)
+    options = uc.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    driver = uc.Chrome(options=options)
+    return driver
 
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
@@ -31,13 +31,18 @@ def login(driver):
 
     driver.get(BOOKEO_URL)
 
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.NAME, 'username')))
-    driver.find_element(By.NAME, 'username').send_keys(username)
-    driver.find_element(By.ID, 'password').send_keys(password)
-    driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
+    try:
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.NAME, 'username')))
+        driver.find_element(By.NAME, 'username').send_keys(username)
+        driver.find_element(By.ID, 'password').send_keys(password)
+        driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
+    except Exception as e:
+        with open("page_error.html", "w") as f:
+            f.write(driver.page_source)
+        raise Exception(f"Login failed: {e}")
 
 def go_to_calendar(driver):
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
 
 def scrape_calendar_data(driver):
@@ -71,4 +76,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
