@@ -15,7 +15,10 @@ from gspread_dataframe import set_with_dataframe
 
 BOOKEO_URL = 'https://signin.bookeo.com/'
 GOOGLE_SHEET_NAME = 'Glowing Mamma Class Lists'
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SCOPES = [
+    'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/drive'
+]
 SERVICE_ACCOUNT_JSON_FILE = 'service_account.json'
 
 def create_browser():
