@@ -22,7 +22,7 @@ jobs:
 
       - name: Decode and save Service Account JSON
         run: |
-          echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" | base64 -d > service_account.json
+          echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" | base64 --decode > service_account.json
 
       - name: Run cloud_extract_calendar.py
         run: |
