@@ -2,7 +2,7 @@ name: Bookeo Calendar Scraper
 
 on:
   schedule:
-    - cron: "0 7 * * *" # Runs daily at 7:00 UTC
+    - cron: "0 7 * * *"
   workflow_dispatch:
 
 jobs:
@@ -11,9 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install dependencies
+      - name: Set up Python Virtualenv
         run: |
-          pip3 install -r scripts/requirements.txt
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install -r scripts/requirements.txt
 
       - name: Decode Google Service Account JSON
         run: |
@@ -21,7 +23,8 @@ jobs:
 
       - name: Run cloud_extract_calendar.py
         run: |
-          /usr/bin/python3 scripts/cloud_extract_calendar.py
+          source venv/bin/activate
+          python scripts/cloud_extract_calendar.py
 
       - name: Upload error page if login fails
         if: failure()
