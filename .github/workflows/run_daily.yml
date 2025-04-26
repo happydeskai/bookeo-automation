@@ -2,7 +2,7 @@ name: Bookeo Calendar Scraper
 
 on:
   schedule:
-    - cron: "0 9 * * *"  # Run every day at 9:00 UTC
+    - cron: "0 9 * * *" # Every day at 9AM UTC
   workflow_dispatch:
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
         run: |
           echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" | base64 --decode > service_account.json
 
-      - name: Run bookeo_scrape_calendar.py
+      - name: Run Bookeo Scraper
         run: |
           source venv/bin/activate
           python scripts/bookeo_scrape_calendar.py
@@ -33,9 +33,9 @@ jobs:
           BOOKEO_PASSWORD: ${{ secrets.BOOKEO_PASSWORD }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
 
-      - name: Upload page_error if login fails
+      - name: Upload error screenshot if scraping fails
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: page-error
-          path: page_error.html
+          name: error-screenshot
+          path: error_screenshot.png
