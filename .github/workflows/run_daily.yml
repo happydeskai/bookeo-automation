@@ -21,7 +21,7 @@ jobs:
 
       - name: Run cloud_extract_calendar.py
         run: |
-          python3 scripts/cloud_extract_calendar.py
+          /usr/bin/python3 scripts/cloud_extract_calendar.py
 
       - name: Upload error page if login fails
         if: failure()
