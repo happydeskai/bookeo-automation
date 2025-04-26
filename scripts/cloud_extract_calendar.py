@@ -18,12 +18,15 @@ GOOGLE_SHEET_NAME = 'Glowing Mamma Class Lists'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = 'service_account.json'
 
+import undetected_chromedriver as uc
+
 def create_browser():
-    chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    return webdriver.Chrome(options=chrome_options)
+    options = uc.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    return uc.Chrome(options=options)
+
 
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
