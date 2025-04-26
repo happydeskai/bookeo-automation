@@ -2,25 +2,23 @@
 
 import time
 import os
-import undetected_chromedriver as uc
 import pandas as pd
-from selenium import webdriver
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
 
+# CONFIG
 BOOKEO_URL = 'https://login.bookeo.com/'
 GOOGLE_SHEET_NAME = 'Glowing Mamma Class Lists'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = 'service_account.json'
 
-import undetected_chromedriver as uc
-
+# BROWSER
 def create_browser():
     options = uc.ChromeOptions()
     options.add_argument('--headless')
@@ -28,13 +26,12 @@ def create_browser():
     options.add_argument('--disable-dev-shm-usage')
     return uc.Chrome(options=options)
 
-
+# LOGIN
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
     password = os.environ.get("BOOKEO_PASSWORD")
 
     driver.get(BOOKEO_URL)
-
     try:
         WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
         driver.find_element(By.NAME, 'username').send_keys(username)
@@ -46,11 +43,18 @@ def login(driver):
         driver.quit()
         raise
 
+# GO TO CALENDAR
 def go_to_calendar(driver):
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
-    driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
-    print("✅ Reached calendar")
+    try:
+        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
+        driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
+        print("✅ Reached calendar")
+    except Exception as e:
+        print(f"❌ Calendar page error: {e}")
+        driver.quit()
+        raise
 
+# SCRAPE BOOKINGS
 def scrape_calendar_data(driver):
     time.sleep(5)
     data = []
@@ -63,9 +67,10 @@ def scrape_calendar_data(driver):
         except Exception:
             continue
     df = pd.DataFrame(data)
-    print(f"✅ Scraped {len(df)} entries")
+    print(f"✅ Scraped {len(df)} bookings")
     return df
 
+# UPLOAD TO GOOGLE SHEETS
 def upload_to_google_sheets(df):
     creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
     client = gspread.authorize(creds)
@@ -74,6 +79,7 @@ def upload_to_google_sheets(df):
     set_with_dataframe(sheet, df)
     print("✅ Uploaded to Google Sheets")
 
+# MAIN FUNCTION
 def main():
     driver = create_browser()
     try:
