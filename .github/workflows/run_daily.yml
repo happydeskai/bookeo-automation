@@ -2,7 +2,7 @@ name: Bookeo Calendar Scraper
 
 on:
   schedule:
-    - cron: "0 7 * * *"
+    - cron: "0 7 * * *" # Runs daily at 7:00 UTC
   workflow_dispatch:
 
 jobs:
@@ -20,9 +20,9 @@ jobs:
           python3 -m pip install --upgrade pip setuptools wheel
           pip install -r scripts/requirements.txt
 
-      - name: Write Service Account JSON to file
+      - name: Decode and save Service Account JSON
         run: |
-          printf "%s" "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" > service_account.json
+          echo "${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}" | base64 -d > service_account.json
 
       - name: Run cloud_extract_calendar.py
         run: |
