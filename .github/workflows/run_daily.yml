@@ -30,7 +30,7 @@ jobs:
 
       - name: Upload error page if login fails
         if: failure()
-        uses: uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4
         with:
           name: page-error
           path: page_error.html
