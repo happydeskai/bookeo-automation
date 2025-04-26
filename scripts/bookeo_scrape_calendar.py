@@ -29,10 +29,10 @@ def create_browser():
     return driver
 
 def login(driver):
-    driver.get(BOOKEO_URL)
     username = os.environ.get("BOOKEO_USERNAME")
     password = os.environ.get("BOOKEO_PASSWORD")
     
+    driver.get(BOOKEO_URL)
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
     driver.find_element(By.NAME, 'username').send_keys(username)
     driver.find_element(By.ID, 'password').send_keys(password)
@@ -40,48 +40,50 @@ def login(driver):
 
 def go_to_calendar(driver):
     WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@onclick, 'book_viewSchedules.html')]"))).click()
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, 'outerBody')))
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, 'calendarBoxes')))
+    time.sleep(2)
 
 def scrape_calendar_data(driver):
-    class_rows = driver.find_elements(By.XPATH, "//div[@class='calendarBoxContentRow']")
-    data = []
-    
-    for row in class_rows:
+    results = []
+    wait = WebDriverWait(driver, 30)
+
+    class_rows = driver.find_elements(By.XPATH, "//div[contains(@class,'eventSlotBox')]")
+    if not class_rows:
+        print("No classes found.")
+        return pd.DataFrame()
+
+    print(f"Found {len(class_rows)} classes to scrape.")
+
+    for class_row in class_rows:
         try:
-            driver.execute_script("arguments[0].scrollIntoView();", row)
-            row.click()
-            
-            WebDriverWait(driver, 15).until(EC.presence_of_element_located((By.ID, 'contentPopup')))
-            
-            time.sleep(1)
-            popup = driver.find_element(By.ID, 'contentPopup')
+            driver.execute_script("arguments[0].scrollIntoView(true);", class_row)
+            class_row.click()
+            time.sleep(2)
 
-            class_name = popup.find_element(By.CLASS_NAME, 'detailsTitle2').text
-            datetime = popup.find_element(By.XPATH, "//input[@name='date']").get_attribute('value')
-            instructor = popup.find_element(By.XPATH, "//select[@name='instr']").get_attribute('value')
+            wait.until(EC.presence_of_element_located((By.ID, "tab_esd_bookings")))
+            customer_cards = driver.find_elements(By.CSS_SELECTOR, ".bookingInfo .detailsTitle2")
 
-            try:
-                customer_elements = popup.find_elements(By.XPATH, "//div[contains(@class, 'bookingInfo')]/div[@class='detailsTitle2']")
-            except:
-                customer_elements = []
+            class_info = driver.find_element(By.CLASS_NAME, "ui3boxTitle").text
+            date_time = driver.find_element(By.XPATH, "//div[contains(@class,'bookingInfo')]/table//td").text
+            instructor = driver.find_element(By.XPATH, "//select[@id='instructor']/option[@selected]").text.strip()
 
-            if customer_elements:
-                for customer in customer_elements:
-                    customer_name = customer.text.split()[0] + ' ' + customer.text.split()[1]
-                    data.append({
-                        "Class Name": class_name,
-                        "Date": datetime,
-                        "Instructor": instructor,
-                        "Customer Name": customer_name
-                    })
-            driver.find_element(By.XPATH, "//div[@id='contentPopup']//button[contains(@class,'close')]").click()
-            time.sleep(0.5)
+            for card in customer_cards:
+                customer_name = card.text.strip().split(' ')[0] + " " + card.text.strip().split(' ')[1]
+                results.append({
+                    'Class Name': class_info.split(' - ')[0],
+                    'Date': date_time,
+                    'Instructor': instructor,
+                    'Customer Name': customer_name
+                })
 
-        except Exception:
-            driver.refresh()
-            WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, 'outerBody')))
+            close_button = driver.find_element(By.XPATH, "//div[@class='winTop']//img[contains(@onclick, 'closePopup')]")
+            close_button.click()
+            time.sleep(2)
+        except Exception as e:
+            print(f"Failed scraping class: {e}")
             continue
-    return pd.DataFrame(data)
+
+    return pd.DataFrame(results)
 
 def save_to_google_sheet(df):
     credentials = Credentials.from_service_account_file(
@@ -102,6 +104,7 @@ def main():
         go_to_calendar(driver)
         df = scrape_calendar_data(driver)
         save_to_google_sheet(df)
+        print(f"Done. Scraped {len(df)} records.")
     finally:
         driver.quit()
 
