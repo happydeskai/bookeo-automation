@@ -1,13 +1,13 @@
 name: Bookeo Calendar Scraper
 
 on:
+  workflow_dispatch:   # so you can manually trigger a run now
   schedule:
-    - cron: "0 7 * * *"  # Runs daily at 7:00 UTC
-  workflow_dispatch:
+    - cron: "0 7 * * *"  # daily at 7:00 UTC
 
 jobs:
   run-script:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted   # ← THIS is the important change!
     steps:
       - uses: actions/checkout@v3
 
@@ -27,10 +27,3 @@ jobs:
       - name: Run cloud_extract_calendar.py
         run: |
           python scripts/cloud_extract_calendar.py
-
-      - name: Upload error page if login fails
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: page-error
-          path: page_error.html
