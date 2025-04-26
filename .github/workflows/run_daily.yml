@@ -1,9 +1,9 @@
 name: Bookeo Calendar Scraper
 
 on:
-  workflow_dispatch:
   schedule:
-    - cron: "0 7 * * *"  # 7:00 UTC daily
+    - cron: "0 7 * * *" # Runs daily at 7:00 UTC
+  workflow_dispatch:
 
 jobs:
   run-script:
@@ -22,3 +22,10 @@ jobs:
       - name: Run cloud_extract_calendar.py
         run: |
           python3 scripts/cloud_extract_calendar.py
+
+      - name: Upload error page if login fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: page-error
+          path: page_error.html
