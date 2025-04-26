@@ -23,7 +23,7 @@ SCOPES = [
 
 def create_browser():
     options = uc.ChromeOptions()
-    options.add_argument('--headless=new')  # New headless mode
+    options.add_argument('--headless=new')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     return uc.Chrome(options=options)
@@ -41,7 +41,6 @@ def login(driver):
 def go_to_calendar(driver):
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
-
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.CLASS_NAME, "calendarView")))
     time.sleep(2)
 
@@ -50,10 +49,11 @@ def scrape_calendar_data(driver):
     today = datetime.now()
     end_date = today + timedelta(days=14)
 
-    rows = driver.find_elements(By.XPATH, "//tr[contains(@class, 'bookings')]")
+    class_rows = driver.find_elements(By.XPATH, "//tr[contains(@class, 'bookings')]")
 
-    for row in rows:
+    for row in class_rows:
         try:
+            driver.execute_script("arguments[0].scrollIntoView();", row)
             row.click()
             time.sleep(1)
 
@@ -61,10 +61,10 @@ def scrape_calendar_data(driver):
             instructor = row.find_element(By.CLASS_NAME, "ber_td_eprovider").text
             date_time = row.find_element(By.CLASS_NAME, "ber_td_start").text
 
-            customer_elements = driver.find_elements(By.XPATH, "//tr[contains(@class, 'ber_booking')]//td[@class='booking_customer']")
+            customers = driver.find_elements(By.XPATH, "//tr[contains(@class, 'ber_booking')]//td[@class='booking_customer']")
 
-            for cust in customer_elements:
-                customer_name = cust.text.strip()
+            for customer in customers:
+                customer_name = customer.text.strip()
                 if customer_name:
                     data.append({
                         "Class Name": class_name,
@@ -75,6 +75,7 @@ def scrape_calendar_data(driver):
 
             row.click()
             time.sleep(0.5)
+
         except Exception:
             continue
 
@@ -106,7 +107,7 @@ def main():
         if not df.empty:
             save_to_google_sheet(df)
         else:
-            print("No classes found for next 14 days. Sheet cleared.")
+            print("No classes found in next 14 days. Sheet cleared.")
     except Exception as e:
         driver.save_screenshot("error_screenshot.png")
         raise e
@@ -115,3 +116,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
