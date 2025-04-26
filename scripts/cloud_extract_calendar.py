@@ -8,29 +8,22 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 import gspread
 from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
 
-BOOKEO_URL = 'https://login.bookeo.com/'
+BOOKEO_URL = 'https://signin.bookeo.com/'  # UPDATED URL ✅
 GOOGLE_SHEET_NAME = 'Glowing Mamma Class Lists'
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 SERVICE_ACCOUNT_FILE = 'service_account.json'
 
 def create_browser():
     options = uc.ChromeOptions()
-    # Comment out headless for now
-    # options.add_argument('--headless')
+    options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    options.add_argument("--disable-blink-features=AutomationControlled")
-    options.add_argument("--disable-gpu")
-    options.add_argument("--start-maximized")
-    options.add_argument("--remote-debugging-port=9222")
     driver = uc.Chrome(options=options)
     return driver
-
 
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
@@ -43,19 +36,13 @@ def login(driver):
         driver.find_element(By.NAME, 'username').send_keys(username)
         driver.find_element(By.ID, 'password').send_keys(password)
         driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
-    except TimeoutException:
-        with open("page_error.html", "w") as f:
-            f.write(driver.page_source)
-        driver.save_screenshot("page_error.png")
-        raise Exception("Login failed: Username field not found. Saved page_error.html and page_error.png.")
     except Exception as e:
         with open("page_error.html", "w") as f:
             f.write(driver.page_source)
-        driver.save_screenshot("page_error.png")
-        raise Exception(f"Login failed with unexpected error: {e}")
+        raise Exception(f"Login failed: {e}")
 
 def go_to_calendar(driver):
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.XPATH, "//span[text()='Calendar']")))
     driver.find_element(By.XPATH, "//span[text()='Calendar']").click()
 
 def scrape_calendar_data(driver):
