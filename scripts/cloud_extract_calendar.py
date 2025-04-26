@@ -2,6 +2,7 @@
 
 import time
 import os
+import undetected_chromedriver as uc
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
