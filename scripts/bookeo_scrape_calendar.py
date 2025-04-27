@@ -8,12 +8,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from google.oauth2.service_account import Credentials
 import gspread
+from google.oauth2.service_account import Credentials
 from gspread_dataframe import set_with_dataframe
 
 BOOKEO_URL = 'https://signin.bookeo.com/'
 GOOGLE_SHEET_NAME = 'Glowing Mamma Class Lists'
+SHEET_TAB_NAME = 'RawData'  # <-- saving into RawData tab
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive'
@@ -22,23 +23,24 @@ SERVICE_ACCOUNT_JSON_FILE = 'service_account.json'
 
 def create_browser():
     options = uc.ChromeOptions()
-    options.add_argument('--headless')
+    options.add_argument('--headless')  # headless to run quietly
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    return uc.Chrome(options=options)
+    driver = uc.Chrome(options=options)
+    return driver
 
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
     password = os.environ.get("BOOKEO_PASSWORD")
+    
     driver.get(BOOKEO_URL)
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
     driver.find_element(By.NAME, 'username').send_keys(username)
     driver.find_element(By.ID, 'password').send_keys(password)
     driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
-    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.XPATH, "//div[contains(@onclick, 'book_viewSchedules.html')]")))
 
 def go_to_calendar(driver):
-    driver.find_element(By.XPATH, "//div[contains(@onclick, 'book_viewSchedules.html')]").click()
+    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@onclick, 'book_viewSchedules.html')]"))).click()
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, 'calendarBoxes')))
     time.sleep(2)
 
@@ -46,7 +48,7 @@ def scrape_classes(driver):
     results = []
     wait = WebDriverWait(driver, 30)
 
-    classes = driver.find_elements(By.CSS_SELECTOR, ".bookeoScheduleEventBox")
+    classes = driver.find_elements(By.XPATH, "//div[contains(@class, 'eventSlotBox')]")
     print(f"Found {len(classes)} classes.")
 
     for event in classes:
@@ -79,13 +81,14 @@ def scrape_classes(driver):
 
     return pd.DataFrame(results)
 
-def upload_to_google_sheet(df):
+def save_to_google_sheet(df):
     credentials = Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_JSON_FILE, scopes=SCOPES
+        SERVICE_ACCOUNT_JSON_FILE,
+        scopes=SCOPES
     )
     gc = gspread.authorize(credentials)
     sh = gc.open(GOOGLE_SHEET_NAME)
-    worksheet = sh.worksheet("RawData")  # You can change to Clean Class List if preferred
+    worksheet = sh.worksheet(SHEET_TAB_NAME)
     worksheet.clear()
     if not df.empty:
         set_with_dataframe(worksheet, df)
@@ -93,14 +96,24 @@ def upload_to_google_sheet(df):
 def main():
     driver = create_browser()
     try:
+        print("[+] Opening Bookeo login page...")
         login(driver)
+        print("[+] Logged in successfully.")
+
+        print("[+] Navigating to Calendar page...")
         go_to_calendar(driver)
-        data = scrape_classes(driver)
-        upload_to_google_sheet(data)
-        print(f"✅ Scraped {len(data)} records and updated Google Sheet.")
+        print("[+] Calendar page loaded.")
+
+        df = scrape_classes(driver)
+
+        print("[+] Saving results to Google Sheets...")
+        save_to_google_sheet(df)
+
+        print(f"[+] Done. Scraped {len(df)} records.")
     finally:
         driver.quit()
 
 if __name__ == "__main__":
     main()
+
 
