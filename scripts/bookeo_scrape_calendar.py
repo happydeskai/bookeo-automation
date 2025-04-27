@@ -1,135 +1,99 @@
-# File: scripts/bookeo_scrape_calendar.py
+# file: /scripts/bookeo_scrape_calendar.py
 
-import os
 import time
-import logging
-
+from datetime import datetime
+from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-
-import gspread
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.action_chains import ActionChains
 from google.oauth2 import service_account
+import gspread
+import os
 
-from undetected_chromedriver import Chrome, ChromeOptions
+BOOKEO_USERNAME = os.getenv("BOOKEO_USERNAME")
+BOOKEO_PASSWORD = os.getenv("BOOKEO_PASSWORD")
+SERVICE_ACCOUNT_FILE = 'service_account.json'
 
-# Set up logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+SPREADSHEET_NAME = "Glowing Mamma Class Lists"
+WORKSHEET_NAME = "Clean Class List"
 
-def login_bookeo(driver):
-    logging.info("Logging into Bookeo...")
+def login_to_bookeo(driver):
     driver.get("https://signin.bookeo.com/login")
-    time.sleep(2)  # Give breathing room for full page load
-    driver.save_screenshot('after_login_page_load.png')  # 📸 Take a screenshot immediately after page load
 
-    username = os.getenv('BOOKEO_USERNAME')
-    password = os.getenv('BOOKEO_PASSWORD')
-
-    try:
-        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, "login")))
-        driver.find_element(By.NAME, "login").send_keys(username)
-        driver.find_element(By.NAME, "password").send_keys(password)
-        driver.find_element(By.NAME, "submit").click()
-        logging.info("Login submitted successfully.")
-    except Exception as e:
-        logging.error(f"Login failed: {e}")
-        driver.save_screenshot('login_error.png')  # 📸 Snapshot the page where it failed
-        raise
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "email"))).send_keys(BOOKEO_USERNAME)
+    driver.find_element(By.ID, "password").send_keys(BOOKEO_PASSWORD)
+    driver.find_element(By.ID, "loginButton").click()
 
 def go_to_calendar(driver):
-    logging.info("Navigating to Calendar page...")
-    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//span[text()='Calendar']"))).click()
+    WebDriverWait(driver, 30).until(EC.element_to_be_clickable((By.XPATH, "//div[contains(@onclick, 'open\\(\\'book_viewSchedules.html\\'\\)')]"))).click()
 
-def scrape_calendar_data(driver):
-    logging.info("Waiting for classes to load...")
-    WebDriverWait(driver, 40).until(EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'eventSlotBox')]")))
+def scrape_class_list(driver):
+    WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, "calendarContent")))
+
     time.sleep(2)
 
-    classes = driver.find_elements(By.XPATH, "//div[contains(@class, 'eventSlotBox')]")
-    logging.info(f"Found {len(classes)} classes")
+    classes = driver.find_elements(By.CSS_SELECTOR, ".fc-event-container .fc-event")
 
-    records = []
+    class_data = []
+    actions = ActionChains(driver)
 
-    for idx, class_element in enumerate(classes):
+    for cls in classes:
         try:
-            driver.execute_script("arguments[0].scrollIntoView(true);", class_element)
-            time.sleep(0.5)
-            class_element.click()
-            logging.info(f"Clicked class {idx + 1}")
+            cls.click()
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "contentLeftPopup")))
 
-            WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.CLASS_NAME, "bookingInfo")))
+            class_name = driver.find_element(By.CSS_SELECTOR, "div.detailsTitle").text
+            date = driver.find_element(By.CSS_SELECTOR, "div.bookingInfo span[style*='font-weight:bold']").text
+            instructor = driver.find_element(By.CSS_SELECTOR, "div.bookingInfo select[name='instructor']").get_attribute("value")
+            customer_elements = driver.find_elements(By.CSS_SELECTOR, "div.bookingDetailsList .detailsCardName")
 
-            # Extract data
-            class_name = driver.find_element(By.CLASS_NAME, "ui3boxTitle").text
-            instructor = driver.find_element(By.XPATH, "//select[@name='instructor']/option[@selected]").text
-            time_text = driver.find_element(By.XPATH, "//input[@name='time']").get_attribute("value")
-            date_text = driver.find_element(By.XPATH, "//input[@name='date']").get_attribute("value")
-
-            customers = driver.find_elements(By.CSS_SELECTOR, ".bookingInfo .detailsTitle2")
-
-            for customer in customers:
+            for customer in customer_elements:
                 customer_name = customer.text.strip()
-                records.append([
-                    class_name,
-                    f"{date_text} {time_text}",
-                    instructor,
-                    customer_name
-                ])
+                class_data.append([class_name, date, instructor, customer_name])
 
-            # Close popup
-            close_button = driver.find_element(By.XPATH, "//div[@class='winTop']//img[contains(@onclick, 'closePopup')]")
-            close_button.click()
+            driver.find_element(By.XPATH, "//button[contains(text(), 'Cancel')]").click()
 
-            time.sleep(0.5)
+            time.sleep(1)
 
         except Exception as e:
-            logging.error(f"Failed to scrape class {idx + 1}: {str(e)}")
-            continue
+            print(f"Failed to scrape class: {e}")
+            driver.find_element(By.XPATH, "//button[contains(text(), 'Cancel')]").click()
+            time.sleep(1)
 
-    return records
+    return class_data
 
-def upload_to_sheet(records):
-    logging.info("Uploading to Google Sheets...")
-    scopes = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = service_account.Credentials.from_service_account_file("service_account.json", scopes=scopes)
-
-    gc = gspread.authorize(creds)
-
-    spreadsheet = gc.open("Glowing Mamma Class Lists")
-    worksheet = spreadsheet.worksheet("Clean Class List")
+def upload_to_google_sheets(data):
+    credentials = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE,
+        scopes=["https://www.googleapis.com/auth/spreadsheets"]
+    )
+    gc = gspread.authorize(credentials)
+    sh = gc.open(SPREADSHEET_NAME)
+    worksheet = sh.worksheet(WORKSHEET_NAME)
 
     worksheet.clear()
     worksheet.append_row(["Class Name", "Date", "Instructor", "Customer Name"])
 
-    for row in records:
-        worksheet.append_row(row)
-
-    logging.info(f"✅ Uploaded {len(records)} rows successfully!")
+    if data:
+        worksheet.append_rows(data, value_input_option="RAW")
 
 def main():
-    options = ChromeOptions()
-    options.headless = False  # 🔥 Turn OFF headless to see browser visibly for debugging
-    options.add_argument('--disable-gpu')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-
-    driver = Chrome(options=options)
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless")
+    options.add_argument("--disable-gpu")
+    driver = webdriver.Chrome(options=options)
 
     try:
-        login_bookeo(driver)
+        login_to_bookeo(driver)
         go_to_calendar(driver)
-        records = scrape_calendar_data(driver)
-
-        if records:
-            upload_to_sheet(records)
-        else:
-            logging.warning("No records found to upload.")
-
+        class_data = scrape_class_list(driver)
+        upload_to_google_sheets(class_data)
     finally:
         driver.quit()
 
 if __name__ == "__main__":
     main()
-
 
 
