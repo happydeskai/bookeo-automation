@@ -2,12 +2,12 @@ name: Bookeo Calendar Scraper
 
 on:
   schedule:
-    - cron: "0 9 * * *" # Every day at 9AM UTC
-  workflow_dispatch: # allow manual trigger
+    - cron: "0 9 * * *"  # Every day at 9AM UTC
+  workflow_dispatch:
 
 jobs:
   run-script:
-    runs-on: self-hosted  # <-- 🔥 THIS is critical!
+    runs-on: self-hosted
 
     steps:
       - name: Checkout repository
@@ -18,7 +18,7 @@ jobs:
           python3 -m venv venv
           source venv/bin/activate
           python3 -m pip install --upgrade pip setuptools wheel
-          pip install -r scripts/requirements.txt
+          pip install undetected-chromedriver gspread gspread_dataframe google-auth pyperclip pynput
 
       - name: Decode and save Service Account JSON
         run: |
