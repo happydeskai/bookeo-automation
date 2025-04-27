@@ -7,7 +7,7 @@ on:
 
 jobs:
   run-script:
-    runs-on: ubuntu-latest  # ✅ Use GitHub's free server, NOT self-hosted
+    runs-on: self-hosted  # <-- 🔥 THIS is critical!
 
     steps:
       - name: Checkout repository
