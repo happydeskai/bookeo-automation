@@ -22,8 +22,7 @@ SERVICE_ACCOUNT_JSON_FILE = 'service_account.json'
 
 def create_browser():
     options = uc.ChromeOptions()
-    # REMOVE headless to debug visually
-    # options.add_argument('--headless')
+    # options.add_argument('--headless')  # TEMPORARY: show browser for debug
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = uc.Chrome(options=options)
@@ -32,68 +31,63 @@ def create_browser():
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
     password = os.environ.get("BOOKEO_PASSWORD")
-    
+
     driver.get(BOOKEO_URL)
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
     driver.find_element(By.NAME, 'username').send_keys(username)
     driver.find_element(By.ID, 'password').send_keys(password)
     driver.find_element(By.ID, 'password').send_keys(Keys.RETURN)
-    print("Logged in.")
+    print("✅ Logged in.")
 
 def go_to_calendar(driver):
     WebDriverWait(driver, 30).until(
-        EC.element_to_be_clickable((By.XPATH, "//div[contains(@onclick, 'book_viewSchedules.html')]"))
+        EC.element_to_be_clickable((By.XPATH, "//span[text()='Calendar']"))
     ).click()
-    print("Clicked Calendar button.")
+    print("✅ Clicked Calendar.")
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.ID, 'calendarBoxes')))
     time.sleep(2)
-    driver.save_screenshot("after_calendar_click.png")
-    print("Calendar page loaded.")
 
 def scrape_calendar_data(driver):
     results = []
     wait = WebDriverWait(driver, 30)
 
-    class_rows = driver.find_elements(By.XPATH, "//div[contains(@class,'eventSlotBox')]")
-    print(f"Found {len(class_rows)} class rows.")
+    rows = driver.find_elements(By.XPATH, "//tr[contains(@class, 'bookings') or contains(@class, 'fullWB')]")
+    print(f"✅ Found {len(rows)} classes.")
 
-    if not class_rows:
-        print("No classes found on calendar. Saving screenshot.")
-        driver.save_screenshot("no_classes_found.png")
-        return pd.DataFrame()
-
-    for idx, class_row in enumerate(class_rows):
+    for idx, row in enumerate(rows):
         try:
-            driver.execute_script("arguments[0].scrollIntoView(true);", class_row)
-            print(f"Clicking class {idx+1}/{len(class_rows)}")
-            class_row.click()
+            driver.execute_script("arguments[0].scrollIntoView(true);", row)
+            row.click()
+            print(f"✅ Opened class {idx+1} popup.")
             time.sleep(2)
 
             wait.until(EC.presence_of_element_located((By.ID, "tab_esd_bookings")))
-            customer_cards = driver.find_elements(By.CSS_SELECTOR, ".bookingInfo .detailsTitle2")
+            booking_popup = driver.find_element(By.ID, "tab_esd_bookings")
 
-            class_info = driver.find_element(By.CLASS_NAME, "ui3boxTitle").text
-            date_time = driver.find_element(By.XPATH, "//div[contains(@class,'bookingInfo')]/table//td").text
+            class_name = driver.find_element(By.CLASS_NAME, "ui3boxTitle").text.split(' - ')[0]
+            date_time = booking_popup.find_element(By.XPATH, ".//th[text()='When:']/following-sibling::td").text.strip()
             instructor = driver.find_element(By.XPATH, "//select[@id='instructor']/option[@selected]").text.strip()
 
-            for card in customer_cards:
-                customer_name = card.text.strip().split(' ')[0] + " " + card.text.strip().split(' ')[1]
-                results.append({
-                    'Class Name': class_info.split(' - ')[0],
-                    'Date': date_time,
-                    'Instructor': instructor,
-                    'Customer Name': customer_name
-                })
+            customers = booking_popup.find_elements(By.CLASS_NAME, "_title")
+            for customer in customers:
+                customer_name = customer.text.strip()
+                if customer_name:
+                    results.append({
+                        'Class Name': class_name,
+                        'Date': date_time,
+                        'Instructor': instructor,
+                        'Customer Name': customer_name
+                    })
 
             close_button = driver.find_element(By.XPATH, "//div[@class='winTop']//img[contains(@onclick, 'closePopup')]")
             close_button.click()
+            print(f"✅ Closed class {idx+1} popup.")
             time.sleep(2)
         except Exception as e:
-            print(f"Failed scraping class {idx+1}: {e}")
-            driver.save_screenshot(f"error_scraping_class_{idx+1}.png")
+            print(f"❌ Failed at class {idx+1}: {e}")
             continue
 
-    print(f"Scraped {len(results)} customers total.")
+    print(f"✅ Scraped {len(results)} customer entries.")
     return pd.DataFrame(results)
 
 def save_to_google_sheet(df):
@@ -105,13 +99,12 @@ def save_to_google_sheet(df):
     sh = gc.open(GOOGLE_SHEET_NAME)
     worksheet = sh.worksheet("Clean Class List")
     worksheet.clear()
-    print("Cleared Clean Class List sheet.")
-
+    print("✅ Cleared Clean Class List sheet.")
     if not df.empty:
         set_with_dataframe(worksheet, df)
-        print("Data uploaded successfully.")
+        print("✅ Uploaded data.")
     else:
-        print("No data to upload.")
+        print("⚠️ No data to upload.")
 
 def main():
     driver = create_browser()
@@ -125,4 +118,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
