@@ -24,7 +24,6 @@ def create_browser():
     options = uc.ChromeOptions()
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    # Headless optional
     driver = uc.Chrome(options=options)
     return driver
 
@@ -57,18 +56,33 @@ def scrape_calendar_data(driver):
     for index, class_row in enumerate(class_rows):
         try:
             driver.execute_script("arguments[0].scrollIntoView(true);", class_row)
+
+            # wait until overlay is gone
+            wait.until(EC.invisibility_of_element_located((By.ID, "overlay_modal")))
+
+            # click using JS
             driver.execute_script("arguments[0].click();", class_row)
+
+            # confirm popup opened
             wait.until(EC.presence_of_element_located((By.ID, "tab_esd_bookings")))
 
             # Extract main class info
             class_info = driver.find_element(By.CLASS_NAME, "ui3boxTitle").text
-            date_time = driver.find_element(By.XPATH, "//div[@class='bookingInfo']//tr[td[contains(text(),'Date')]]/td[2]").text
-            instructor = driver.find_element(By.XPATH, "//select[@id='instructor']/option[@selected]").text.strip()
+
+            date_time_elem = driver.find_element(By.XPATH, "//div[@class='bookingInfo']//tr[td[contains(text(),'Date')]]/td[2]")
+            date_time = date_time_elem.text if date_time_elem else "Unknown Date"
+
+            instructor_elem = driver.find_element(By.XPATH, "//select[@id='instructor']/option[@selected]")
+            instructor = instructor_elem.text.strip() if instructor_elem else "Unknown Instructor"
 
             customer_cards = driver.find_elements(By.CSS_SELECTOR, ".bookingInfo .detailsTitle2")
+
+            if not customer_cards:
+                print(f"No customers found for class {index+1}")
+
             for card in customer_cards:
                 full_text = card.text.strip()
-                name_parts = full_text.split(' ')[:2]  # Take first 2 words as name
+                name_parts = full_text.split(' ')[:2]
                 customer_name = ' '.join(name_parts)
                 results.append({
                     'Class Name': class_info.split(' - ')[0],
@@ -118,4 +132,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
