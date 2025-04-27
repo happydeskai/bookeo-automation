@@ -19,7 +19,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 def login_bookeo(driver):
     logging.info("Logging into Bookeo...")
     driver.get("https://signin.bookeo.com/login")
-    time.sleep(1)  # slight breathing room
+    time.sleep(2)  # Give breathing room for full page load
+    driver.save_screenshot('after_login_page_load.png')  # 📸 Take a screenshot immediately after page load
 
     username = os.getenv('BOOKEO_USERNAME')
     password = os.getenv('BOOKEO_PASSWORD')
@@ -32,7 +33,7 @@ def login_bookeo(driver):
         logging.info("Login submitted successfully.")
     except Exception as e:
         logging.error(f"Login failed: {e}")
-        driver.save_screenshot('login_error.png')
+        driver.save_screenshot('login_error.png')  # 📸 Snapshot the page where it failed
         raise
 
 def go_to_calendar(driver):
@@ -42,7 +43,7 @@ def go_to_calendar(driver):
 def scrape_calendar_data(driver):
     logging.info("Waiting for classes to load...")
     WebDriverWait(driver, 40).until(EC.presence_of_all_elements_located((By.XPATH, "//div[contains(@class, 'eventSlotBox')]")))
-    time.sleep(2)  # Let it fully load
+    time.sleep(2)
 
     classes = driver.find_elements(By.XPATH, "//div[contains(@class, 'eventSlotBox')]")
     logging.info(f"Found {len(classes)} classes")
@@ -107,7 +108,7 @@ def upload_to_sheet(records):
 
 def main():
     options = ChromeOptions()
-    options.add_argument('--headless=new')  # running in background
+    options.headless = False  # 🔥 Turn OFF headless to see browser visibly for debugging
     options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
@@ -129,5 +130,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
