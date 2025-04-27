@@ -3,11 +3,11 @@ name: Bookeo Calendar Scraper
 on:
   schedule:
     - cron: "0 9 * * *" # Every day at 9AM UTC
-  workflow_dispatch:
+  workflow_dispatch: # allow manual trigger
 
 jobs:
   run-script:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest  # ✅ Use GitHub's free server, NOT self-hosted
 
     steps:
       - name: Checkout repository
