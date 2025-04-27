@@ -98,13 +98,35 @@ def parse_calendar_data():
     return pd.DataFrame(data)
 
 def save_to_google_sheet(df):
-    credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_JSON_FILE, scopes=SCOPES)
+    if df.empty:
+        print("[!] DataFrame is empty after scraping, not updating Google Sheet.")
+        return
+    
+    print(f"[+] Saving {len(df)} rows to Google Sheet...")
+
+    credentials = Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_JSON_FILE,
+        scopes=SCOPES
+    )
     gc = gspread.authorize(credentials)
-    sh = gc.open(GOOGLE_SHEET_NAME)
-    worksheet = sh.worksheet("Clean Class List")
+    sh = gc.open_by_title(GOOGLE_SHEET_NAME)
+    
+    try:
+        worksheet = sh.worksheet("Clean Class List")
+    except gspread.exceptions.WorksheetNotFound:
+        print("[!] Worksheet 'Clean Class List' not found, creating...")
+        worksheet = sh.add_worksheet(title="Clean Class List", rows="1000", cols="20")
+    
     worksheet.clear()
-    if not df.empty:
-        set_with_dataframe(worksheet, df)
+
+    # Make sure columns are in expected order
+    expected_columns = ['Class Name', 'Date', 'Instructor', 'Customer Name']
+    if not all(col in df.columns for col in expected_columns):
+        print(f"[!] DataFrame missing expected columns! Found columns: {df.columns.tolist()}")
+        return
+
+    set_with_dataframe(worksheet, df[expected_columns])
+    print("[+] Successfully updated Google Sheet!")
 
 def main():
     driver = create_browser()
