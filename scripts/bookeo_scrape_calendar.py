@@ -22,7 +22,7 @@ SERVICE_ACCOUNT_JSON_FILE = 'service_account.json'
 
 def create_browser():
     options = uc.ChromeOptions()
-    # options.add_argument('--headless')  # TEMPORARY: show browser for debug
+    # options.add_argument('--headless')  # DEBUG: leave visual
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     driver = uc.Chrome(options=options)
@@ -31,7 +31,6 @@ def create_browser():
 def login(driver):
     username = os.environ.get("BOOKEO_USERNAME")
     password = os.environ.get("BOOKEO_PASSWORD")
-
     driver.get(BOOKEO_URL)
     WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.NAME, 'username')))
     driver.find_element(By.NAME, 'username').send_keys(username)
@@ -57,7 +56,8 @@ def scrape_calendar_data(driver):
     for idx, row in enumerate(rows):
         try:
             driver.execute_script("arguments[0].scrollIntoView(true);", row)
-            row.click()
+            clickable_td = row.find_element(By.TAG_NAME, "td")
+            clickable_td.click()
             print(f"✅ Opened class {idx+1} popup.")
             time.sleep(2)
 
@@ -66,7 +66,7 @@ def scrape_calendar_data(driver):
 
             class_name = driver.find_element(By.CLASS_NAME, "ui3boxTitle").text.split(' - ')[0]
             date_time = booking_popup.find_element(By.XPATH, ".//th[text()='When:']/following-sibling::td").text.strip()
-            instructor = driver.find_element(By.XPATH, "//select[@id='instructor']/option[@selected]").text.strip()
+            instructor = booking_popup.find_element(By.XPATH, ".//th[text()='Instructor:']/following-sibling::td").text.strip()
 
             customers = booking_popup.find_elements(By.CLASS_NAME, "_title")
             for customer in customers:
